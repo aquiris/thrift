@@ -67,7 +67,7 @@ THRIFTCODE= \
             src/TPrototypeProcessorFactory.cs \
             src/TControllingHandler.cs \
             src/TException.cs \
-            src/TApplicationException.cs
+            src/TApplicationException.cs \
 
 if MONO_MCS
 CSC=mcs
