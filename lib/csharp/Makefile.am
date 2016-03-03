@@ -82,7 +82,7 @@ endif
 all-local: Thrift.dll
 
 Thrift.dll: $(THRIFTCODE)
-	$(CSC) $(THRIFTCODE) /out:Thrift.dll /target:library /reference:System.Web $(MONO_DEFINES)
+	$(CSC) $(THRIFTCODE) -debug /out:Thrift.dll /target:library $(MONO_DEFINES)
 
 clean-local:
 	$(RM) Thrift.dll
