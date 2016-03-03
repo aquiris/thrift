@@ -21,6 +21,7 @@
 
 from __future__ import division
 from __future__ import print_function
+import platform
 import copy
 import os
 import signal
@@ -56,15 +57,19 @@ PROTOS = [
     'json',
 ]
 
-SERVERS = [
-    "TSimpleServer",
-    "TThreadedServer",
-    "TThreadPoolServer",
-    "TProcessPoolServer",
-    "TForkingServer",
-    "TNonblockingServer",
-    "THttpServer",
-]
+
+def default_servers():
+    servers = [
+        'TSimpleServer',
+        'TThreadedServer',
+        'TThreadPoolServer',
+        'TNonblockingServer',
+        'THttpServer',
+    ]
+    if platform.system() != 'Windows':
+        servers.append('TProcessPoolServer')
+        servers.append('TForkingServer')
+    return servers
 
 
 def relfile(fname):
@@ -77,7 +82,7 @@ def setup_pypath(libdir, gendir):
     pypath = env.get('PYTHONPATH', None)
     if pypath:
         dirs.append(pypath)
-    env['PYTHONPATH'] = ':'.join(dirs)
+    env['PYTHONPATH'] = os.pathsep.join(dirs)
     if gendir.endswith('gen-py-no_utf8strings'):
         env['THRIFT_TEST_PY_NO_UTF8STRINGS'] = '1'
     return env
@@ -133,20 +138,25 @@ def runServiceTest(libdir, genbase, genpydir, server_class, proto, port, use_zli
                             % (server_class, ' '.join(server_args)))
 
     # Wait for the server to start accepting connections on the given port.
-    sock = socket.socket()
     sleep_time = 0.1  # Seconds
     max_attempts = 100
-    try:
-        attempt = 0
-        while sock.connect_ex(('127.0.0.1', port)) != 0:
+    attempt = 0
+    while True:
+        sock4 = socket.socket()
+        sock6 = socket.socket(socket.AF_INET6)
+        try:
+            if sock4.connect_ex(('127.0.0.1', port)) == 0 \
+                    or sock6.connect_ex(('::1', port)) == 0:
+                break
             attempt += 1
             if attempt >= max_attempts:
                 raise Exception("TestServer not ready on port %d after %.2f seconds"
                                 % (port, sleep_time * attempt))
             ensureServerAlive()
             time.sleep(sleep_time)
-    finally:
-        sock.close()
+        finally:
+            sock4.close()
+            sock6.close()
 
     try:
         if verbose > 0:
@@ -166,7 +176,8 @@ def runServiceTest(libdir, genbase, genpydir, server_class, proto, port, use_zli
                   'processes to terminate via alarm'
                   % (server_class, proto, use_zlib, use_ssl, extra_sleep))
             time.sleep(extra_sleep)
-        os.kill(serverproc.pid, signal.SIGKILL)
+        sig = signal.SIGKILL if platform.system() != 'Windows' else signal.SIGABRT
+        os.kill(serverproc.pid, sig)
         serverproc.wait()
 
 
@@ -268,9 +279,9 @@ def main():
         generated_dirs.append('gen-py-%s' % (gp_dir))
 
     # commandline permits a single class name to be specified to override SERVERS=[...]
-    servers = SERVERS
+    servers = default_servers()
     if len(args) == 1:
-        if args[0] in SERVERS:
+        if args[0] in servers:
             servers = args
         else:
             print('Unavailable server type "%s", please choose one of: %s' % (args[0], servers))

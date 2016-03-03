@@ -20,14 +20,15 @@
 # build Apache Thrift on Travis CI - https://travis-ci.org/
 
 sudo: required
+dist: trusty
 
 services:
   - docker
 
 install:
-  - docker pull thrift/$DISTRO:latest || true
+  - travis_wait docker pull thrift/$DISTRO:latest || true
   - cp -r ./build/docker/scripts/*.sh ./build/docker/$DISTRO/scripts/
-  - docker build -q -t thrift-build build/docker/$DISTRO
+  - travis_retry travis_wait docker build -q -t thrift-build build/docker/$DISTRO
 
 script:
   - docker run $BUILD_ENV -v $(pwd):/thrift/src -it thrift-build $BUILD_CMD $BUILD_ARG
@@ -64,16 +65,11 @@ env:
       BUILD_ARG="--without-csharp --without-java --without-erlang --without-nodejs --without-lua --without-python --without-perl --without-php --without-php_extension --without-dart --without-ruby --without-haskell --without-go --without-haxe --without-d"
       BUILD_ENV="-e CC=gcc -e CXX=g++"
 
-    - TEST_NAME="Java Lua Perl PHP Python Ruby (automake)"
+    - TEST_NAME="Java Lua Perl PHP Python Ruby Dart (automake)"
       BUILD_CMD="../autotools.sh"
-      BUILD_ARG="--without-cpp --without-haskell --without-c_glib --without-csharp --without-d --without-dart --without-erlang --without-go --without-haxe"
+      BUILD_ARG="--without-cpp --without-haskell --without-c_glib --without-csharp --without-d --without-erlang --without-go --without-haxe"
 
-    # Tutorial build is unstable
-    - TEST_NAME="Dart (automake)"
-      BUILD_CMD="../autotools.sh"
-      BUILD_ARG="--without-cpp --without-haskell --without-c_glib --without-csharp --without-d --without-erlang --without-go --without-haxe --without-java --without-lua --without-nodejs --without-perl --without-php --without-php_extension --without-python --without-ruby --enable-tutorial=no"
-
-    # These are flaky and also have lengthy output
+    # These are flaky (due to cabal and npm network/server failures) and also have lengthy output
     - TEST_NAME="Haskell Node.js (automake)"
       BUILD_CMD="../autotools.sh"
       BUILD_ARG="--without-cpp --without-c_glib --without-csharp --without-d --without-dart --without-erlang --without-go --without-haxe --without-java --without-lua --without-perl --without-php --without-php_extension --without-python --without-ruby"
@@ -153,12 +149,18 @@ matrix:
   include:
     # QA jobs for code analytics and metrics
     #
-    # static code analysis with cppcheck
+    # C/C++ static code analysis with cppcheck
     # add --error-exitcode=1 to --enable=all as soon as everything is fixed
-    - env: TEST_NAME="cppcheck"
+    #
+    # Python code style check with flake8
+    #
+    # search for TODO etc within source tree
+    # some statistics about the code base
+    # some info about the build machine
+    - env: TEST_NAME="cppcheck, flake8, TODO FIXME HACK, LoC and system info"
       install:
-        - sudo apt-get update
-        - sudo apt-get install cppcheck
+        - travis_retry sudo apt-get update
+        - travis_retry sudo apt-get install -ym cppcheck sloccount python-flake8
       script:
         # Compiler cppcheck (All)
         - cppcheck --force --quiet --inline-suppr --enable=all -j2 compiler/cpp/src
@@ -170,15 +172,16 @@ matrix:
         - cppcheck --force --quiet --inline-suppr --error-exitcode=1 -j2 compiler/cpp/src
         - cppcheck --force --quiet --inline-suppr --error-exitcode=1 -j2 lib/cpp/src lib/cpp/test test/cpp tutorial/cpp
         - cppcheck --force --quiet --inline-suppr --error-exitcode=1 -j2 lib/c_glib/src lib/c_glib/test test/c_glib/src tutorial/c_glib
-
-    # search for TODO etc within source tree
-    # some statistics about the code base
-    # some info about the build machine
-    - env:    TEST_NAME="TODO FIXME HACK, LoC and system info"
-      install:
-        - sudo apt-get update
-        - sudo apt-get install sloccount
-      script:
+        # Python code style
+        - flake8 --ignore=E501 lib/py
+        - flake8 tutorial/py
+        - flake8 --ignore=E501 test/py
+        - flake8 test/py.twisted
+        - flake8 test/py.tornado
+        - flake8 --ignore=E501 test/test.py
+        - flake8 --ignore=E501 test/crossrunner
+        - flake8 test/features
+        # TODO etc
         - grep -r TODO *
         - grep -r FIXME *
         - grep -r HACK *

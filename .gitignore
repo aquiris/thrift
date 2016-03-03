@@ -123,6 +123,7 @@ erl_crash.dump
 /lib/c_glib/*.gcno
 /lib/c_glib/*.loT
 /lib/c_glib/src/thrift/config.h
+/lib/c_glib/src/thrift/stamp-h3
 /lib/c_glib/test/*.gcno
 /lib/c_glib/test/testwrapper.sh
 /lib/c_glib/test/testwrapper-test*
@@ -279,6 +280,9 @@ erl_crash.dump
 /tutorial/csharp/CsharpServer/bin
 /tutorial/csharp/CsharpClient/obj
 /tutorial/csharp/CsharpClient/bin
+/tutorial/d/async_client
+/tutorial/d/client
+/tutorial/d/server
 /tutorial/dart/**/.packages
 /tutorial/dart/**/packages
 /tutorial/dart/**/.pub/
